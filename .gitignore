@@ -1,0 +1,11 @@
+.gitignore
+/.idea/
+/.pytest_cache/
+/kiamformation/.run/
+/notebooks/.ipynb_checkpoints/
+/notebooks/img/.ipynb_checkpoints/
+/notebooks/magnetic_control/.ipynb_checkpoints/
+/notebooks/storage/.ipynb_checkpoints/
+/test/_trial_temp/
+/kiamformation/data/trajectories/
+/notebooks/magnetic_control/
