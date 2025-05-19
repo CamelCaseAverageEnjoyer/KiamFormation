@@ -60,10 +60,10 @@ def plot_distance(o):
 
     plot_observability_criteria(o)
 
-    fig, ax = plt.subplots(2 if o.NAVIGATION_ANGLES else 1,
-                           2 if o.NAVIGATION_ANGLES else 2,
-                           figsize=(12, 20 if o.NAVIGATION_ANGLES else 5))
-    axes = ax[0] if o.NAVIGATION_ANGLES else ax
+    fig, ax = plt.subplots(2 if o.rotational_motion_navigate else 1,
+                           2 if o.rotational_motion_navigate else 2,
+                           figsize=(12, 20 if o.rotational_motion_navigate else 5))
+    axes = ax[0] if o.rotational_motion_navigate else ax
     title = {"рус": f"Неточности в навигации", "eng": f"Navigation Errors"}[o.LANGUAGE]
     label_time = {"рус": f"Время, с", "eng": f"Time, s"}[o.LANGUAGE]
     fig.suptitle(title, fontsize=TITLE_SIZE)
@@ -104,7 +104,7 @@ def plot_distance(o):
     axes[1].legend(fontsize=CAPTION_SIZE)
     axes[1].grid(True)
 
-    if o.NAVIGATION_ANGLES:
+    if o.rotational_motion_navigate:
         for i_f in range(o.f.n):
             labels_dq = ["Δλˣ", "Δλʸ", "Δλᶻ"]
             labels_dw = ["Δωˣ", "Δωʸ", "Δωᶻ"]
@@ -132,7 +132,7 @@ def plot_distance(o):
 
 def plot_atmosphere_models(n: int = 100):
     import matplotlib.pyplot as plt
-    from kiamformation.dynamics import get_atm_params
+    from kiamformation.physics import get_atm_params
 
     o = Objects()
     range_km = [300, 500]
@@ -168,7 +168,7 @@ def show_chipsat(o, j, clr, opacity, reference_frame: str, return_go: bool = Tru
     :return:
     """
     import plotly.graph_objs as go
-    from kiamformation.dynamics import get_matrices
+    from kiamformation.physics import get_matrices
     global FEMTO_RATE
 
     rate = FEMTO_RATE if reference_frame != "BRF" else 2 / min(o.f.size)
@@ -211,7 +211,7 @@ def show_chipsat(o, j, clr, opacity, reference_frame: str, return_go: bool = Tru
 
 def show_cubesat(o, j, reference_frame: str, xyz=None) -> list:
     import plotly.graph_objs as go
-    from kiamformation.dynamics import get_matrices
+    from kiamformation.physics import get_matrices
     global CUBE_RATE
 
     n_legs = 4
@@ -414,7 +414,7 @@ def plot_the_earth_go(o: Objects):
 
 
 def plot_reference_frames(ax, o, txt: str, color: str = "gray", t: float = None):
-    from kiamformation.dynamics import get_matrices
+    from kiamformation.physics import get_matrices
 
     x, y, z = np.eye(3)
     arrows, start = np.array([x, y, z]) * o.ORBIT_RADIUS, None
@@ -445,8 +445,8 @@ def animate_reference_frames(resolution: int = 3, n: int = 50):
     o = Objects()
     # o.dT = o.SEC_IN_TURN / (n - 3)
     TIME = 2*np.pi / o.W_ORB
-    o.dT = TIME / (n - 3)
-    o.IF_NAVIGATION = False
+    o.dt = TIME / (n - 3)
+    o.if_navigation = False
 
     fig = plt.figure(figsize=(7, 7))
     ax = fig.add_subplot(projection='3d')
@@ -511,11 +511,11 @@ def plot_all(o, save: bool = False, count: int = None):
             fig.add_trace(surf, row=1, col=i+1)
     # fig.add_trace(plot_the_earth_go(v=o.v), row=1, col=1)
     fig.update_layout(title=dict(text=f"Солвер: {o.SOLVER} "
-                                      f"{'(' if o.DYNAMIC_MODEL['aero drag'] or o.DYNAMIC_MODEL['j2'] else ''}"
-                                      f"{' +Лобовое сопротивление' if o.DYNAMIC_MODEL['aero drag'] else ''}"
-                                      f"{' +Вторая гармоника' if o.DYNAMIC_MODEL['j2'] else ''}"
-                                      f"{' )' if o.DYNAMIC_MODEL['aero drag'] or o.DYNAMIC_MODEL['j2'] else ''}"
-                                      f" | Время: {o.TIME} ({round(o.TIME / (3600 * 24), 2)} дней)  |  "
+                                      f"{'(' if o.physics_model['aero drag'] or o.physics_model['j2'] else ''}"
+                                      f"{' +Лобовое сопротивление' if o.physics_model['aero drag'] else ''}"
+                                      f"{' +Вторая гармоника' if o.physics_model['j2'] else ''}"
+                                      f"{' )' if o.physics_model['aero drag'] or o.physics_model['j2'] else ''}"
+                                      f" | Время: {o.time} ({round(o.time / (3600 * 24), 2)} дней)  |  "
                                       f"i={o.INCLINATION}°, e={o.ECCENTRICITY}"),
                       legend=dict(yanchor='top', xanchor='left', y=0.7, x=0.3))
     fig.update_scenes(xaxis_title_text='x, m',

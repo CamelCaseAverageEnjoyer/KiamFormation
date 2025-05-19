@@ -8,7 +8,7 @@ sys.path.insert(1, f"{sys.path[0]}/kiamformation")
 
 from kiamformation.config import *
 from kiamformation.static.cosmetic import *
-from kiamformation.dynamics import *
+from kiamformation.physics import *
 from kiamformation.flexmath import *
 from kiamformation.navigation import *
 from kiamformation.H_matrix import *

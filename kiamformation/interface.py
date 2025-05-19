@@ -283,8 +283,8 @@ class Window(QWidget):
         if self.textboxes['Параметры'].text() != "":
             self.o.DESCRIPTION = self.textboxes['Параметры'].text()
 
-        self.o.dT = float(self.comboboxes['dT'].currentText())
-        self.o.TIME = float(self.comboboxes['TIME'].currentText())
+        self.o.dt = float(self.comboboxes['dT'].currentText())
+        self.o.time = float(self.comboboxes['TIME'].currentText())
         self.o.START_NAVIGATION = self.comboboxes['START_NAVIGATION_N'].currentText()
         self.o.START_NAVIGATION_N = self.o.NAVIGATIONS.index(self.o.START_NAVIGATION)
         self.o.GAIN_MODEL_C = self.comboboxes['GAIN_MODEL_C_N'].currentText()
@@ -298,19 +298,19 @@ class Window(QWidget):
         self.o.DEPLOYMENT = self.comboboxes['DEPLOYMENT_N'].currentText()
         self.o.DEPLOYMENT_N = self.o.DEPLOYMENTS.index(self.o.DEPLOYMENT)
 
-        self.o.DISTORTION = float(self.textboxes['DISTORTION'].text())
-        self.o.CUBESAT_AMOUNT = int(self.textboxes['CUBESAT_AMOUNT'].text())
-        self.o.CHIPSAT_AMOUNT = int(self.textboxes['CHIPSAT_AMOUNT'].text())
-        self.o.KALMAN_COEF['q'] = [float(self.textboxes[f'q{k}'].text()) for k in range(2)]
-        self.o.KALMAN_COEF['p'] = [float(self.textboxes[f'p{k}'].text()) for k in range(4)]
-        self.o.KALMAN_COEF['r'] = float(self.textboxes['r'].text())
+        self.o.G_distortion = float(self.textboxes['DISTORTION'].text())
+        self.o.cubesat_amount = int(self.textboxes['CUBESAT_AMOUNT'].text())
+        self.o.chipsat_amount = int(self.textboxes['CHIPSAT_AMOUNT'].text())
+        self.o.kalman_coef['q'] = [float(self.textboxes[f'q{k}'].text()) for k in range(2)]
+        self.o.kalman_coef['p'] = [float(self.textboxes[f'p{k}'].text()) for k in range(4)]
+        self.o.kalman_coef['r'] = float(self.textboxes['r'].text())
         self.o.RVW_CubeSat_SPREAD = [float(self.textboxes[f'rvw_cubesat{k}'].text()) for k in range(3)]
         self.o.RVW_ChipSat_SPREAD = [float(self.textboxes[f'rvw_chipsat{k}'].text()) for k in range(3)]
 
-        self.o.DYNAMIC_MODEL['aero drag'] = self.checkboxes['DYNAMIC_MODEL_aero'].isChecked()
-        self.o.DYNAMIC_MODEL['j2'] = self.checkboxes['DYNAMIC_MODEL_j2'].isChecked()
-        self.o.NAVIGATION_ANGLES = self.checkboxes['NAVIGATION_ANGLES'].isChecked()
-        self.o.IF_NAVIGATION = self.checkboxes['IF_NAVIGATION'].isChecked()
+        self.o.physics_model['aero drag'] = self.checkboxes['DYNAMIC_MODEL_aero'].isChecked()
+        self.o.physics_model['j2'] = self.checkboxes['DYNAMIC_MODEL_j2'].isChecked()
+        self.o.rotational_motion_navigate = self.checkboxes['NAVIGATION_ANGLES'].isChecked()
+        self.o.if_navigation = self.checkboxes['IF_NAVIGATION'].isChecked()
         self.o.RELATIVE_SIDES = self.checkboxes['RELATIVE_SIDES'].isChecked()
 
         my_print('Параметры применены!', color='c')
@@ -388,9 +388,9 @@ class Window(QWidget):
         if self.o.p.iter < 2:
             my_print(f"Повторная инициализация...", color='y', if_print=self.o.IF_TEST_PRINT)
             self.o.init_classes()
-        self.o.integrate(t=self.o.TIME, animate=False)
+        self.o.integrate(t=self.o.time, animate=False)
 
-        if self.o.IF_NAVIGATION:
+        if self.o.if_navigation:
             plot_distance(self.o)  # Авто-показ графика оценки движения
 
         if self.o.IF_TALK:

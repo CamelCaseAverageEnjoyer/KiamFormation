@@ -7,7 +7,7 @@
 """
 from kiamformation.spacecrafts import Apparatus
 from kiamformation.config import Objects
-from kiamformation.dynamics import PhysicModel
+from kiamformation.physics import PhysicModel
 import numpy as np
 
 
@@ -23,8 +23,8 @@ def measure_antennas_power(c: Apparatus, f: Apparatus, p: PhysicModel, o: Object
         Класс дочерних КА
     p : PhysicModel
         Класс численного моделирования
-    vrs : Variables
-        Класс параметров моделирования
+    o : Objects
+        Конфигурационный класс моделирования
     produce : bool
         Флаг, указывающий, надо ли записывать полученные величины в PhysicModel.record
     noise : float
@@ -55,7 +55,7 @@ def measure_antennas_power(c: Apparatus, f: Apparatus, p: PhysicModel, o: Object
     g_all, anw = [], []
 
     def get_U(obj, ind):
-        from kiamformation.dynamics import get_matrices
+        from kiamformation.physics import get_matrices
         U, S, A, R_orb = get_matrices(o=o, t=p.t, obj=obj, n=ind)
         return U  # float2rational(U, (1, 2), (1, 1))
 
@@ -79,7 +79,7 @@ def measure_antennas_power(c: Apparatus, f: Apparatus, p: PhysicModel, o: Object
                     # Relative orientation    
                     U_1 = get_U(obj1, i_1)
                     U_2 = get_U(obj2, i_2) 
-                    if produce or not o.NAVIGATION_ANGLES:
+                    if produce or not o.rotational_motion_navigate:
                         A_1 = quart2dcm(obj1.q[i_1])
                         A_2 = quart2dcm(obj2.q[i_2])
                     else:

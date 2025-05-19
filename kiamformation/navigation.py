@@ -21,15 +21,15 @@ class KalmanFilter:
         self.observability_gramian = None
 
         # Матрицы фильтра в начальный момент времени
-        if not self.o.NAVIGATION_ANGLES:  # Вектор состояния содержит только положение и скорость
+        if not self.o.rotational_motion_navigate:  # Вектор состояния содержит только положение и скорость
             self.D = np.vstack([np.zeros((3, 3)), np.eye(3)])
-            self.P = [np.diag([self.o.KALMAN_COEF['p'][0]] * 3 + [self.o.KALMAN_COEF['p'][1]] * 3) for _ in range(f.n)]
-            self.Q = np.diag([self.o.KALMAN_COEF['q'][0]] * 3)
+            self.P = [np.diag([self.o.kalman_coef['p'][0]] * 3 + [self.o.kalman_coef['p'][1]] * 3) for _ in range(f.n)]
+            self.Q = np.diag([self.o.kalman_coef['q'][0]] * 3)
         else:  # Вектор состояния содержит ещё и угловые переменные
             self.D = np.vstack([np.zeros((6, 6)), np.eye(6)])
-            self.P = [np.diag([self.o.KALMAN_COEF['p'][0]] * 3 + [self.o.KALMAN_COEF['p'][1]] * 3 +
-                              [self.o.KALMAN_COEF['p'][2]] * 3 + [self.o.KALMAN_COEF['p'][3]] * 3) for _ in range(f.n)]
-            self.Q = np.diag([self.o.KALMAN_COEF['q'][0]] * 3 + [self.o.KALMAN_COEF['q'][1]] * 3)
+            self.P = [np.diag([self.o.kalman_coef['p'][0]] * 3 + [self.o.kalman_coef['p'][1]] * 3 +
+                              [self.o.kalman_coef['p'][2]] * 3 + [self.o.kalman_coef['p'][3]] * 3) for _ in range(f.n)]
+            self.Q = np.diag([self.o.kalman_coef['q'][0]] * 3 + [self.o.kalman_coef['q'][1]] * 3)
         self.Phi = self.get_Phi(w=None, w0=None, q=None)
 
         # Расширешние на учёт несколько аппаратов в фильтре
@@ -41,7 +41,7 @@ class KalmanFilter:
         """Внимание: переделать секцию (if self.o.NAVIGATION_ANGLES)"""
         from kiamformation.math_tools import get_antisymmetric_matrix, quart2dcm, vec2quat, matrix2angle
         from kiamformation.flexmath import inv, sqrt, cos, sin, bmat, setvectype, zeros, eye
-        from kiamformation.dynamics import get_matrices
+        from kiamformation.physics import get_matrices
 
         w0 = self.o.W_ORB if w0 is None else w0
         q = self.f.q if q is None else q
@@ -55,23 +55,23 @@ class KalmanFilter:
                          [0, 0, 0],
                          [2 * w0, 0, 0]], template=w0)
 
-        if self.o.DYNAMIC_MODEL['aero drag']:
+        if self.o.physics_model['aero drag']:
             cos_alpha = matrix2angle(quart2dcm(self.f.q[i]))
             c = self.f.get_blown_surface(cos_alpha=cos_alpha) * self.o.RHO / self.f.mass
             A2[0, 0] = -2 * c * (self.o.V_ORB + self.estimation_params_d['v orf'][i][0])
 
-        if self.o.NAVIGATION_ANGLES:  # Оценка орбитального и углового движения
+        if self.o.rotational_motion_navigate:  # Оценка орбитального и углового движения
             J = self.f.J
             Wj = inv(J) @ (-get_antisymmetric_matrix(w) @ J + get_antisymmetric_matrix(J @ w))
             Ww = get_antisymmetric_matrix(w)
 
-            U, S, A, R_orb = get_matrices(vrs=self.o, t=self.p.t, obj=self.f, n=i)
+            U, S, A, R_orb = get_matrices(o=self.o, t=self.p.t, obj=self.f, n=i)
             R = quart2dcm(vec2quat(*np.array(self.estimation_params_d['q-3 irf']))) @ R_orb
             eta = R / np.linalg.norm(R)
             Wr = get_antisymmetric_matrix(eta)
             Wq = inv(self.f.J) @ (6*self.o.W_ORB**2 * (Wr @ J @ Wr - get_antisymmetric_matrix(J @ eta) @ Wr))
 
-            if self.o.DYNAMIC_MODEL['aero drag']:
+            if self.o.physics_model['aero drag']:
                 q_x, q_y, q_z = q
                 t = self.p.t
                 w_0 = self.o.W_ORB
@@ -98,7 +98,7 @@ class KalmanFilter:
             F = bmat([[O, E],
                       [A1, A2]], template=w0)
 
-        return F * self.o.dT + np.eye(self.j)
+        return F * self.o.dt + np.eye(self.j)
 
     def get_Phi(self, w=None, w0=None, q=None):
         from kiamformation.flexmath import block_diag
@@ -110,7 +110,7 @@ class KalmanFilter:
     def params_vec2dict(self, params: list = None, j: int = None, separate_spacecraft: bool = True):
         p = self.estimation_params if params is None else params
         j = self.j if j is None else j
-        if self.o.NAVIGATION_ANGLES:
+        if self.o.rotational_motion_navigate:
             if separate_spacecraft:
                 r_orf = [p[i][0: 3] for i in range(self.f.n)]
                 q_irf = [p[i][3: 6] for i in range(self.f.n)]
@@ -132,7 +132,7 @@ class KalmanFilter:
         return {'r orf': r_orf, 'v orf': v_orf, 'w brf': w_orf, 'q-3 irf': q_irf}
 
     def params_dict2vec(self, d: dict, separate_spacecraft: bool = True):
-        variables = ['r orf', 'q-3 irf', 'v orf', 'w brf'] if self.o.NAVIGATION_ANGLES else ['r orf', 'v orf']
+        variables = ['r orf', 'q-3 irf', 'v orf', 'w brf'] if self.o.rotational_motion_navigate else ['r orf', 'v orf']
         if separate_spacecraft:
             return [np.array([d[v][i][j] for v in variables for j in range(3)]) for i in range(self.f.n)]
         else:
@@ -144,7 +144,7 @@ class KalmanFilter:
 
     def calc(self, if_correction: bool) -> None:
         from kiamformation.measurements import measure_antennas_power
-        from kiamformation.dynamics import rk4_translate, rk4_attitude
+        from kiamformation.physics import ode4
         from kiamformation.math_tools import vec2quat
         from kiamformation.spacecrafts import get_gain
         from control import obsv
@@ -165,33 +165,33 @@ class KalmanFilter:
         # >>>>>>>>>>>> Этап экстраполяции <<<<<<<<<<<<
         d = self.params_vec2dict()
 
-        # Моделирование орбитального движения на dT -> вектор состояния x_m
-        rv_m = [rk4_translate(o=o, obj=f, i=i, r=d['r orf'][i], v=d['v orf'][i]) for i in range(f.n)]
-        qw_m = [rk4_attitude(o=o, obj=f, i=i, t=self.p.t, q=d['q-3 irf'][i], w=d['w brf'][i]) for i in range(f.n)]
-        x_m = self.params_dict2vec(d={'r orf': [rv_m[i][0] for i in range(f.n)],
-                                      'v orf': [rv_m[i][1] for i in range(f.n)],
-                                      'q-3 irf': [qw_m[i][0] for i in range(f.n)],
-                                      'w brf': [qw_m[i][1] for i in range(f.n)]}, separate_spacecraft=False)
-        d = self.params_vec2dict(params=x_m, separate_spacecraft=False)
+        # Интегрирование движения -> вектор состояния x_m
+        rqvw = [ode4(o=o, obj=f, i=i, t=self.p.t, r=d['r orf'][i], v=d['v orf'][i], q=d['q-3 irf'][i], w=d['w brf'][i])
+                for i in range(f.n)]
+        x = self.params_dict2vec(d={'r orf': [rqvw[i][0] for i in range(f.n)],
+                                    'q-3 irf': [rqvw[i][1] for i in range(f.n)],
+                                    'v orf': [rqvw[i][2] for i in range(f.n)],
+                                    'w brf': [rqvw[i][3] for i in range(f.n)]}, separate_spacecraft=False)
+        d = self.params_vec2dict(params=x, separate_spacecraft=False)
         self.estimation_params_d = d
 
         # Измерения с поправкой на угловой коэффициент усиления G (signal_rate)
-        z_ = o.MEASURES_VECTOR
+        y = o.MEASURES_VECTOR
 
         # Измерения согласно модели
-        z_model = measure_antennas_power(c=c, f=f, o=o, p=p, j=j, state=x_m)
+        y_model = measure_antennas_power(c=c, f=f, o=o, p=p, j=j, state=x)
         
-        tmp = np.abs(z_model - z_)
+        tmp = np.abs(y_model - y)
         p.record.loc[p.iter, f'ZModel&RealDifference'] = tmp.mean()
         p.record.loc[p.iter, f'ZModel&RealDifference min'] = tmp.min()
         p.record.loc[p.iter, f'ZModel&RealDifference max'] = tmp.max()
-        p.record.loc[p.iter, f'ZModel&RealDifference N'] = len(z_model)
-        p.record.loc[p.iter, f'ZReal N'] = len(z_)
-        p.record.loc[p.iter, f'ZModel N'] = len(z_model)
-        for i in range(len(z_model)):
+        p.record.loc[p.iter, f'ZModel&RealDifference N'] = len(y_model)
+        p.record.loc[p.iter, f'ZReal N'] = len(y)
+        p.record.loc[p.iter, f'ZModel N'] = len(y_model)
+        for i in range(len(y_model)):
             p.record.loc[p.iter, f'ZModel&RealDifference {i}'] = tmp[i]
-            p.record.loc[p.iter, f'ZReal {i}'] = abs(z_[i])
-            p.record.loc[p.iter, f'ZModel {i}'] = abs(z_model[i])
+            p.record.loc[p.iter, f'ZReal {i}'] = abs(y[i])
+            p.record.loc[p.iter, f'ZModel {i}'] = abs(y_model[i])
 
         # >>>>>>>>>>>> Этап коррекции <<<<<<<<<<<<
         if if_correction:
@@ -200,13 +200,13 @@ class KalmanFilter:
             self.Phi = self.get_Phi(w=None, w0=None, q=None)
             Q_tilda = self.Phi @ self.D @ self.Q @ self.D.T @ self.Phi.T  # * o.dT
             P_m = self.Phi @ self.P @ self.Phi.T + Q_tilda
-            q_f = d['q-3 irf'] if o.NAVIGATION_ANGLES else [f.q[i].vec for i in range(f.n)]
+            q_f = d['q-3 irf'] if o.rotational_motion_navigate else [f.q[i].vec for i in range(f.n)]
             H = h_matrix(t=p.t, o=o, f=f, c=c, r_f=d['r orf'], r_c=c.r_orf, q_f=q_f, q_c=[c.q[i].vec for i in range(c.n)])
 
-            R = np.eye(z_len) * o.KALMAN_COEF['r']
+            R = np.eye(z_len) * o.kalman_coef['r']
             K = P_m @ H.T @ np.linalg.inv(H @ P_m @ H.T + R)
             self.P = (np.eye(j * f.n) - K @ H) @ P_m
-            raw_estimation_params = np.array(np.matrix(x_m) + K @ (z_ - z_model))[0]
+            raw_estimation_params = np.array(np.matrix(x) + K @ (y - y_model))[0]
 
             # Численный расчёт STM
             self.STM = self.Phi if self.STM is None else self.Phi @ self.STM
@@ -215,19 +215,19 @@ class KalmanFilter:
             _, simgas, _ = np.linalg.svd(self.observability_gramian)
             p.record.loc[p.iter, f'gramian sigma criteria'] = np.min(simgas)/np.max(simgas)
 
-            tmp = obsv((self.Phi - np.eye(self.Phi.shape[0])) / self.o.dT, H)
+            tmp = obsv((self.Phi - np.eye(self.Phi.shape[0])) / self.o.dt, H)
             _, simgas, _ = np.linalg.svd(tmp)
             p.record.loc[p.iter, f'linear rank criteria'] = np.linalg.matrix_rank(tmp)
             p.record.loc[p.iter, f'linear sigma criteria'] = np.min(simgas)/np.max(simgas)
         else:
-            raw_estimation_params = x_m
+            raw_estimation_params = x
 
         # >>>>>>>>>>>> Обновление оценки <<<<<<<<<<<<
         for i in range(f.n):
             tmp = raw_estimation_params[(0 + i) * j: (1 + i) * j]
 
             # Нормировка кватерниона
-            if o.NAVIGATION_ANGLES:
+            if o.rotational_motion_navigate:
                 tmp[3:6] = vec2quat(tmp[3:6]).normalized().vec
 
             # Запись

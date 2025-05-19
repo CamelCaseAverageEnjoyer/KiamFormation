@@ -1,7 +1,7 @@
-"""Testing of project kiam-formation.
+"""Тестирование проекта kiam-formation.
 
-Functions:
--
+Добавить:
+- Кватернион в rk4 принимается и отдаётся N-вектором (передали 3 - получили 3)
 """
 import numpy as np
 import sympy

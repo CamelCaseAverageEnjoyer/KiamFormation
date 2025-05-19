@@ -37,7 +37,7 @@ def local_dipole(o: Objects, r, ind: str = 'x', model: str = 'quarter-wave monop
     from kiamformation.flexmath import setvectype, norm, cos, dot, cross, pi
     from kiamformation.math_tools import vec2unit
     
-    r_12 = vec2unit(r) + setvectype([0.03 * o.DISTORTION, 0.05 * o.DISTORTION, 0])   # Искажение диаграммы
+    r_12 = vec2unit(r) + setvectype([0.03 * o.G_distortion, 0.05 * o.G_distortion, 0])   # Искажение диаграммы
     r_antenna_brf = setvectype(r_a(ind))
     
     sin_theta = norm(cross(r_antenna_brf, r_12))
@@ -113,7 +113,7 @@ class Apparatus:
         Положения и скорости КА данного типа в ИСК рассчитываются из себя в ОСК
     """
     def __init__(self, o: Objects, n: int):
-        from kiamformation.dynamics import get_matrices, o_i
+        from kiamformation.physics import get_matrices, o_i
 
         # Общие параметры
         self.name = "No exist"
@@ -121,9 +121,10 @@ class Apparatus:
         self.mass = 1e10
         self.size = [1., 1., 1.]
         self.c_resist = 0
-        self.J = None
+        self.J = np.diag([1, 1, 1])
         self.gain_mode = 'isotropic'
         self.b_env = None
+        self.apriori_params = None
 
         # Индивидуальные параметры движения
         self.w_irf = [np.zeros(3) for _ in range(self.n)]
@@ -143,14 +144,14 @@ class Apparatus:
         return abs(self.size[0] * self.size[1] * abs(cos_alpha) * self.c_resist)
 
     def update_irf_rv(self, o: Objects, t: float = 0):
-        from kiamformation.dynamics import o_i, get_matrices
+        from kiamformation.physics import o_i, get_matrices
         for i in range(self.n):
             U, _, _, _ = get_matrices(o=o, t=t, obj=self, n=i)
             self.r_irf[i] = o_i(o=o, a=self.r_orf[i], U=U, vec_type='r')
             self.v_irf[i] = o_i(o=o, a=self.v_orf[i], U=U, vec_type='v')
 
     def update_irf_w(self, o: Objects, t: float = 0, w_irf: list = None, w_orf: list = None, w_brf: list = None):
-        from kiamformation.dynamics import o_i, get_matrices
+        from kiamformation.physics import o_i, get_matrices
         w_irf = self.w_irf if w_irf is None else w_irf
         w_orf = self.w_orf if w_orf is None else w_orf
         w_brf = self.w_brf if w_brf is None else w_brf
@@ -179,7 +180,7 @@ class CubeSat(Apparatus):
     """Класс содержит информацию об n кубсатах модели model_c = 1U/1.5U/2U/3U/6U/12U.
     Все величны представлены в СИ."""
     def __init__(self, o: Objects):
-        super().__init__(o=o, n=o.CUBESAT_AMOUNT)
+        super().__init__(o=o, n=o.cubesat_amount)
 
         # Предопределённые параметры
         cubesat_property = {'1U': {'mass': 2.,
@@ -222,7 +223,8 @@ class CubeSat(Apparatus):
         self.q = [np.quaternion(1, -1, -1, -1) for _ in range(self.n)]
 
         # СПЕЦИАЛЬНЫЕ НАЧАЛЬНЫЕ УСЛОВИЯ ДЛЯ УДОВЛЕТВОРЕНИЯ ТРЕБОВАНИЯМ СТАТЬИ
-        self.r_orf[0], self.v_orf[0], self.w_orf[0], self.q[0] = [o.specific_initial[f"CubeSat {i}"] for i in "rvwq"]
+        self.r_orf[0], self.v_orf[0], self.w_orf[0] = [np.array(o.specific_initial[f"CubeSat {i}"]) for i in "rvw"]
+        self.q[0] = np.quaternion(*o.specific_initial[f"CubeSat q"])
 
         # Инициализируется автоматически
         self.init_correct_q_v(o=o)
@@ -241,7 +243,7 @@ class FemtoSat(Apparatus):
     def __init__(self, o: Objects, c: CubeSat):
         """Класс содержит информацию об n фемтосатах.\n
         Все величны представлены в СИ."""
-        super().__init__(o=o, n=o.CHIPSAT_AMOUNT)
+        super().__init__(o=o, n=o.chipsat_amount)
 
         # Предопределённые параметры
         chipsat_property = {'KickSat': {'mass': 0.005,
@@ -272,9 +274,9 @@ class FemtoSat(Apparatus):
         self.q, self.q_ = [[np.quaternion(*np.random.uniform(-1, 1, 4)) for _ in range(self.n)] for _ in range(2)]
 
         # СПЕЦИАЛЬНЫЕ НАЧАЛЬНЫЕ УСЛОВИЯ ДЛЯ УДОВЛЕТВОРЕНИЯ ТРЕБОВАНИЯМ СТАТЬИ
-        # Вообще для таких штук self.deploy, но мы ж хотим только первый КА зафиксировать
-        self.r_orf[0], self.v_orf[0], self.w_orf[0], self.q[0] = [o.specific_initial[f"ChipSat {i}"] for i in "rvwq"]
-        dr, dv = [o.specific_initial[f"ChipSat d{i}"] for i in "rv"]
+        self.r_orf[0], self.v_orf[0], self.w_orf[0] = [np.array(o.specific_initial[f"ChipSat {i}"]) for i in "rvw"]
+        dr, dv = [np.array(o.specific_initial[f"ChipSat d{i}"]) for i in "rv"]
+        self.q[0] = np.quaternion(*o.specific_initial[f"ChipSat q"])
 
         # Инициализируется автоматически
         self.init_correct_q_v(o=o)
@@ -286,10 +288,10 @@ class FemtoSat(Apparatus):
         # Индивидуальные параметры управления
         self.m_self, self.b_env = [[np.zeros(3) for _ in range(self.n)] for _ in range(2)]
 
-        tol = 1 if o.START_NAVIGATION == o.NAVIGATIONS[0] else o.START_NAVIGATION_TOLERANCE
+        tol = 1 if o.START_NAVIGATION == o.NAVIGATIONS[0] else o.start_nav_tolerance
         tol = 0 if o.START_NAVIGATION == o.NAVIGATIONS[2] else tol
 
-        if o.NAVIGATION_ANGLES:
+        if o.rotational_motion_navigate:
             self.apriori_params = {'r orf': [self.r_orf[i] * tol + o.spread('r', name=self.name) * (1 - tol)
                                              for i in range(self.n)],
                                    'v orf': [self.v_orf[i] * tol + o.spread('v', name=self.name) * (1 - tol)

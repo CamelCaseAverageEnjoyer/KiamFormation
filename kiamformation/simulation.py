@@ -25,7 +25,7 @@ def find_close_solution(o: Objects):
     """
     import matplotlib.pyplot as plt
 
-    o.v.IF_NAVIGATION = False
+    o.v.if_navigation = False
     o.v.IF_ANY_PRINT = False
     qf = o.f.q
     wf = o.f.w_brf
@@ -52,7 +52,7 @@ def find_close_solution(o: Objects):
                                 o.f.w_brf[i] = wf[i]
                                 o.f.r_orf[i] = rf[i] + np.array([dr_x, dr_y, dr_z])
                                 o.f.v_orf[i] = vf[i] + np.array([dv_x, dv_y, dv_z])
-                                o.integrate(t=o.v.TIME)
+                                o.integrate(t=o.v.time)
                                 # measurements.append(o.v.MEASURES_VECTOR)
                                 measurements.append(o.p.record[f'MEASURES_VECTOR {0}'])
     for i, m in enumerate(measurements):
